@@ -1,0 +1,90 @@
+name: Render episodes 002 and 003
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/render-episodes-002-003.yml'
+permissions:
+  contents: read
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg espeak-ng fonts-dejavu-core
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install 'kokoro==0.9.4' soundfile pillow numpy
+      - name: Render shorts
+        run: |
+          mkdir -p output
+          python - <<'PY'
+          from kokoro import KPipeline
+          import numpy as np, soundfile as sf, subprocess as sp
+          from PIL import Image, ImageDraw, ImageFont
+          from pathlib import Path
+          p=KPipeline(lang_code='e',repo_id='hexgrad/Kokoro-82M')
+          episodes={
+          '002':[
+          ('¿GTA VI EN WINDOWS?', 'Un supuesto avance en ordenador está dando mucho que hablar.'),
+          ('AVANCE EXPERIMENTAL', 'El veinticuatro de noviembre, un usuario de Reddit afirmó haber alcanzado las primeras pantallas de inicio de GTA seis en Windows.'),
+          ('NO ES JUGABLE', 'Eso no demuestra que el juego completo funcione. Otros informes describen pruebas de arranque todavía incompletas.'),
+          ('CUIDADO CON LOS ARCHIVOS', 'No existe una versión estable verificada. Desconfía de los instaladores que prometen el juego completo.'),
+          ('VICE RADAR NEWS', 'Síguenos para conocer los avances reales, sin confundir rumores con noticias confirmadas.')],
+          '003':[
+          ('¿GTA VI PC EN 2027?', '¿Podría llegar GTA seis a ordenador antes de lo esperado?'),
+          ('LO OFICIAL', 'Rockstar anunció el lanzamiento del diecinueve de noviembre para PlayStation cinco y Xbox Series.'),
+          ('LO QUE DICEN LOS MEDIOS', 'Meristation recoge un informe que apunta al primer trimestre de dos mil veintisiete. Es información no confirmada.'),
+          ('SIN FECHA OFICIAL', 'La filtración no demuestra que Rockstar vaya a adelantar el lanzamiento. Por ahora, no hay fecha oficial para ordenador.'),
+          ('VICE RADAR NEWS', 'Seguiremos pendientes de cualquier anuncio oficial. Síguenos para estar al día.')]}
+          bold='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
+          regular='/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
+          def wrap(text, font, width, draw):
+              lines=[]; line=''
+              for w in text.split():
+                  trial=(line+' '+w).strip()
+                  if draw.textlength(trial,font=font)>width and line: lines.append(line);line=w
+                  else: line=trial
+              return '\n'.join(lines+[line])
+          def run(*args): sp.run(['ffmpeg','-hide_banner','-loglevel','error','-y',*args],check=True)
+          for ep, scenes in episodes.items():
+              folder=Path('output')/ep;folder.mkdir()
+              clips=[]
+              for i,(title,script) in enumerate(scenes):
+                  audio=np.concatenate([a for _,_,a in p(script,voice='em_alex',speed=1.0) if a is not None])
+                  audio=np.concatenate([audio,np.zeros(7200)])
+                  seconds=len(audio)/24000
+                  wav=folder/f'{i}.wav';sf.write(wav,audio,24000)
+                  im=Image.new('RGB',(1080,1920)); d=ImageDraw.Draw(im)
+                  for y in range(1920):
+                      t=y/1920;d.line((0,y,1080,y),fill=(int(15+40*t),int(8+8*t),int(35+40*t)))
+                  for radius in (160,260,360,460):
+                      d.ellipse((540-radius,600-radius,540+radius,600+radius),outline='#713991',width=4)
+                  d.line((540,600,860,280),fill='#29dfda',width=7)
+                  d.ellipse((755,410,780,435),fill='#ff58ab')
+                  d.text((540,130),'VICE RADAR NEWS',font=ImageFont.truetype(bold,62),anchor='mm',fill='#ff67b5')
+                  d.text((540,230),f'25 NOV 2026  |  EP. {ep}',font=ImageFont.truetype(regular,35),anchor='mm',fill='#c5b9db')
+                  f=ImageFont.truetype(bold,90);d.multiline_text((540,850),wrap(title,f,900,d),font=f,anchor='mm',align='center',fill='#ffffff',spacing=16)
+                  f=ImageFont.truetype(regular,48);d.multiline_text((540,1300),wrap(script,f,850,d),font=f,anchor='mm',align='center',fill='#ffffff',spacing=18)
+                  d.text((540,1710),'INFORMACIÓN  •  NO ES GAMEPLAY',font=ImageFont.truetype(bold,30),anchor='mm',fill='#29dfda')
+                  png=folder/f'{i}.png';im.save(png)
+                  clip=folder/f'{i}.mp4'
+                  run('-loop','1','-framerate','30','-i',str(png),'-i',str(wav),'-t',str(seconds),'-c:v','libx264','-preset','fast','-pix_fmt','yuv420p','-c:a','aac','-ar','48000','-ac','2',str(clip));clips.append(clip)
+              listing=folder/'concat.txt';listing.write_text(''.join("file '"+c.name+"'\n" for c in clips))
+              combined=folder/'combined.mp4';run('-f','concat','-safe','0','-i',str(listing),'-c','copy',str(combined))
+              final=Path('output')/f'VICE_RADAR_{ep}.mp4'
+              run('-i',str(combined),'-c:v','copy','-af','highpass=f=80,acompressor=threshold=0.125:ratio=2,loudnorm=I=-14:TP=-1.5:LRA=7','-ar','48000','-ac','2','-c:a','aac','-b:a','256k',str(final))
+              with open(Path('output')/f'audio-{ep}.txt','w') as f:
+                  sp.run(['ffmpeg','-hide_banner','-i',str(final),'-af','ebur128=peak=true','-f','null','-'],stderr=f,check=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vice-radar-episodes-002-003
+          path: |
+            output/*.mp4
+            output/audio-*.txt
+          retention-days: 3
