@@ -41,6 +41,7 @@ for i,uri in enumerate([
         with Image.open(dest) as im: im.verify()
         photos.append(dest)
     except Exception as e: print("Photo failed:",e)
+clips=[c for c in clips if probe(c)>=18]
 if not clips or not photos: raise RuntimeError("Required real promotional visuals unavailable; do not substitute static cards")
 episodes=[
 {"id":"002","hook":"¿GTA 6 YA FUNCIONA EN PC?","source":"Computer Hoy | 25 NOV 2026","url":"https://computerhoy.20minutos.es/gaming/adios-gta-6-pc-take-two-cierra-leonida-proyecto-mas-avanzado-para-llevar-grand-theft-auto-vi-ordenador_7065463_0.html","headline":"Take-Two cierra el proyecto Leonida","script":"¿GTA seis ya funciona en ordenador? Hay un detalle que cambia todo. Según Computer Hoy, el proyecto Leonida consiguió avances experimentales para arrancar el juego en Windows. Pero arrancar no es lo mismo que jugar. Take Two ha cerrado el proyecto y no existe una adaptación no oficial completamente jugable que se haya verificado. Así que cuidado con las descargas milagrosas. ¿Tú esperarías al lanzamiento oficial para ordenador?"},
@@ -60,10 +61,10 @@ whisper=WhisperModel("base",device="cpu",compute_type="int8")
 report=[]
 for ep in episodes:
     folder=W/ep["id"];folder.mkdir(exist_ok=True)
-    audio=np.concatenate([a for _,_,a in p(ep["script"],voice="em_alex",speed=1.06) if a is not None])
+    audio=np.concatenate([a for _,_,a in p(ep["script"],voice="em_alex",speed=0.98) if a is not None])
     raw=folder/"voice.wav";sf.write(raw,audio,24000)
     dur=len(audio)/24000
-    segments,_=whisper.transcribe(str(raw),language="es",word_timestamps=True)
+    segments,_=whisper.transcribe(str(raw),language="es",word_timestamps=True,initial_prompt=ep["script"],condition_on_previous_text=False)
     words=[w for s in segments for w in (s.words or []) if w.end>w.start]
     if len(words)<20: raise RuntimeError("Subtitle alignment failed")
     ass=folder/"subs.ass"
@@ -72,6 +73,7 @@ for ep in episodes:
     for k in range(0,len(words),4):
         g=words[k:k+4]
         txt="".join(w.word for w in g).strip().replace("{","").replace("}","")
+        txt=txt.replace("2017","2027").replace("GAMES-BEAT","GamesBeat").replace("Games-Beat","GamesBeat")
         lines.append(f"Dialogue: 0,{timecode(g[0].start)},{timecode(g[-1].end)},Default,,0,0,0,,{txt}")
     ass.write_text(header+"\n".join(lines),encoding="utf-8")
     shots=[];counts={"clip":0,"photo":0,"news":0}
@@ -80,7 +82,7 @@ for ep in episodes:
         seconds=min(2,dur-i*2)
         if i in (2,3): kind="news";asset=photos[i%len(photos)]
         elif i%3==1: kind="photo";asset=photos[i%len(photos)]
-        else: kind="clip";asset=clips[i%len(clips)]
+        else: kind="clip";asset=clips[(i+(1 if ep["id"]=="003" else 0))%len(clips)]
         counts[kind]+=1
         ov=Image.new("RGBA",(1080,1920),(0,0,0,0));d=ImageDraw.Draw(ov)
         d.rectangle((0,0,1080,305),fill=(12,9,26,224))
@@ -97,7 +99,12 @@ for ep in episodes:
         overlay=folder/f"overlay{i}.png";ov.save(overlay)
         out=folder/f"shot{i}.mp4"
         if kind=="clip":
-            start=min(max(0,probe(asset)-seconds-.1),0.4+(i%4)*1.0)
+            length=probe(asset)
+            # Avoid rating cards and end logos: sample different interior positions.
+            low=max(6.0,length*.22); high=min(length-6.0-seconds,length*.72)
+            if high<low: low=max(3.0,length*.30);high=max(low,length*.60-seconds)
+            ratio=((i*0.381966+(0.23 if ep["id"]=="003" else 0.0))%1)
+            start=low+(high-low)*ratio
             inputs=["-ss",str(start),"-stream_loop","-1","-i",str(asset)]
             vf="[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1[b];[b][1:v]overlay"
         else:
@@ -111,7 +118,7 @@ for ep in episodes:
     music=sum(.009*np.sin(2*np.pi*f*t)*(.75+.25*np.sin(2*np.pi*1.5*t+j)) for j,f in enumerate([55,82.41,110,164.81]))
     music*=np.minimum(1,t/.3)*np.minimum(1,np.maximum(0,(dur-t)/.6))
     sf.write(folder/"music.wav",music,sr)
-    dest=O/f"VICE_RADAR_V3_{ep['id']}_REVIEW.mp4"
+    dest=O/f"VICE_RADAR_V3_1_{ep['id']}_REVIEW.mp4"
     ff("-i",visual,"-i",raw,"-i",folder/"music.wav","-filter_complex_threads","1","-filter_complex",f"[0:v]ass={ass}[v];[1:a]highpass=f=80,acompressor=threshold=0.125:ratio=2[vocal];[vocal][2:a]amix=inputs=2:duration=first:normalize=0,loudnorm=I=-14:TP=-1.5:LRA=7[a]","-map","[v]","-map","[a]","-t",str(dur),"-c:v","libx264","-preset","veryfast","-crf","22","-c:a","aac","-ar","48000","-ac","2","-b:a","256k","-movflags","+faststart",dest)
     with open(O/f"audio-{ep['id']}.txt","w") as f:sp.run(["ffmpeg","-hide_banner","-i",str(dest),"-af","ebur128=peak=true","-f","null","-"],stderr=f,check=True)
     report.append({"id":ep["id"],"duration":probe(dest),"shots":counts,"source":ep["url"],"rights":"Review only; commercial reuse not verified","captions":"ASR word timing; accuracy pending human review"})
