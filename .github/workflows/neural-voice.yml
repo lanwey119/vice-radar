@@ -1,0 +1,42 @@
+name: Neural voice test
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/neural-voice.yml'
+permissions:
+  contents: read
+jobs:
+  voice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install speech engine
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg espeak-ng
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install 'kokoro==0.9.4' soundfile
+      - name: Generate and normalize test narration
+        run: |
+          mkdir -p output
+          python - <<'PY'
+          from kokoro import KPipeline
+          import numpy as np
+          import soundfile as sf
+          p = KPipeline(lang_code='e', repo_id='hexgrad/Kokoro-82M')
+          text = 'Bienvenidos a Vice Radar News. Hoy repasamos las últimas noticias de GTA seis para ordenador. Diferenciamos los hechos confirmados de los rumores.'
+          audio = [a for _, _, a in p(text, voice='em_alex', speed=1.0) if a is not None]
+          assert audio, 'No audio generated'
+          sf.write('output/raw.wav', np.concatenate(audio), 24000)
+          PY
+          ffmpeg -hide_banner -y -i output/raw.wav -af 'highpass=f=80,acompressor=threshold=0.125:ratio=2,loudnorm=I=-14:TP=-1.5:LRA=7' -ar 48000 -ac 2 -c:a aac -b:a 256k output/narracion.m4a
+          ffmpeg -hide_banner -i output/narracion.m4a -af ebur128=peak=true -f null - 2>output/audio-check.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: neural-voice-sample
+          path: output/
+          retention-days: 3
