@@ -1,0 +1,50 @@
+name: Buffer connection check
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/buffer-check.yml']
+permissions: {}
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify Buffer authentication and VICE RADAR channels
+        env:
+          BUFFER_API_KEY: ${{ secrets.BUFFER_API_KEY }}
+        run: |
+          python3 - <<'PY'
+          import os, json, urllib.request, urllib.error
+          key = os.environ.get("BUFFER_API_KEY")
+          if not key:
+              raise SystemExit("BUFFER_API_KEY is not configured")
+          def gql(query):
+              req = urllib.request.Request("https://api.buffer.com", data=json.dumps({"query":query}).encode(), headers={"Authorization":"Bearer "+key,"Content-Type":"application/json"})
+              try:
+                  with urllib.request.urlopen(req,timeout=30) as response:
+                      payload=json.load(response)
+              except urllib.error.HTTPError as e:
+                  raise SystemExit("Buffer HTTP status "+str(e.code))
+              if payload.get("errors"):
+                  raise SystemExit("Buffer rejected the read-only GraphQL query")
+              return payload["data"]
+          orgs=gql("query { account { organizations { id } } }")["account"]["organizations"]
+          print("Buffer authentication successful")
+          matched=set()
+          for org in orgs:
+              query="query { channels(input: { organizationId: "+json.dumps(org["id"])+" }) { service name displayName isQueuePaused } }"
+              for ch in gql(query)["channels"]:
+                  service=ch["service"].lower()
+                  name=" ".join(str(ch.get(k) or "") for k in ("name","displayName")).lower()
+                  normalized="".join(c for c in name if c.isalnum())
+                  if service in ("tiktok","youtube") and "viceradar" in normalized:
+                      if ch["isQueuePaused"]:
+                          print(service+": VICE RADAR found; queue paused")
+                      else:
+                          print(service+": VICE RADAR found; queue not paused")
+                          matched.add(service)
+          if matched != {"tiktok","youtube"}:
+              raise SystemExit("Both expected active VICE RADAR queues could not be verified")
+          print("Both expected channels verified. No posts created.")
+          PY
