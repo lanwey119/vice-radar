@@ -1,0 +1,140 @@
+name: VICE RADAR dynamic V2
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/render-dynamic-v2.yml'
+permissions:
+  contents: read
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg espeak-ng fonts-dejavu-core
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install 'kokoro==0.9.4' soundfile pillow numpy
+      - name: Generate dynamic videos
+        run: |
+          mkdir -p output
+          python - <<'PY'
+          from kokoro import KPipeline
+          import numpy as np, soundfile as sf, subprocess as sp, math
+          from PIL import Image, ImageDraw, ImageFont
+          from pathlib import Path
+          p=KPipeline(lang_code='e',repo_id='hexgrad/Kokoro-82M')
+          episodes={
+          '002':[
+          ('¿GTA 6 EN PC?','¿GTA seis ya funciona en ordenador? No tan rápido.','PC'),
+          ('CASI ARRANCA','GamesRadar informa de que algunos desarrolladores dicen estar cerca de arrancar el juego.','SOURCE'),
+          ('ARRANCAR NO ES JUGAR','Pero llegar al inicio no equivale a explorar Vice City.','COMPARE'),
+          ('NO HAY PORT ESTABLE','No hay una versión completa y jugable verificada.','STATUS'),
+          ('ALERTA DE ESTAFA','PC Gamer advierte de archivos falsos que prometen una versión para ordenador.','WARNING'),
+          ('EL VEREDICTO','Avance experimental, sí. Lanzamiento para ordenador, todavía no.','STATUS'),
+          ('VICE RADAR NEWS','¿Lo jugarías en consola o esperarías a ordenador?','PC')],
+          '003':[
+          ('¿PC ANTES DE TIEMPO?','¿Puede la filtración adelantar GTA seis para ordenador?','PC'),
+          ('19 NOV 2026','El juego llegó a PlayStation cinco y Xbox Series el diecinueve de noviembre.','TIMELINE'),
+          ('RUMOR: 2027','Meristation recoge un informe que apunta a principios de dos mil veintisiete.','SOURCE'),
+          ('SIN CONFIRMACIÓN','Pero Rockstar no ha confirmado esa fecha.','STATUS'),
+          ('OTRA ESTIMACIÓN','PC Gamer considera posible que la espera dure hasta finales de dos mil veintisiete.','TIMELINE'),
+          ('FILTRACIÓN ≠ FECHA','Una filtración no demuestra que cambien los planes de lanzamiento.','COMPARE'),
+          ('VICE RADAR NEWS','¿Esperarías un año más por la versión de ordenador?','PC')]}
+          bold='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
+          regular='/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
+          def font(s,b=True): return ImageFont.truetype(bold if b else regular,s)
+          def wrap(s,f,d,w=920):
+              out=[]; line=''
+              for word in s.split():
+                  trial=(line+' '+word).strip()
+                  if line and d.textlength(trial,font=f)>w:out.append(line);line=word
+                  else:line=trial
+              return '\n'.join(out+[line])
+          def run(*args):sp.run(['ffmpeg','-hide_banner','-loglevel','error','-y',*args],check=True)
+          for ep,scenes in episodes.items():
+              folder=Path('output')/ep;folder.mkdir()
+              clips=[]
+              for i,(title,script,mode) in enumerate(scenes):
+                  a=np.concatenate([x for _,_,x in p(script,voice='em_alex',speed=1.04) if x is not None])
+                  a=np.concatenate([a,np.zeros(3600)])
+                  duration=len(a)/24000
+                  wav=folder/f'{i}.wav';sf.write(wav,a,24000)
+                  n=max(1,math.ceil(duration*30))
+                  out=folder/f'{i}.mp4'
+                  proc=sp.Popen(['ffmpeg','-hide_banner','-loglevel','error','-y','-f','rawvideo','-pix_fmt','rgb24','-s','720x1280','-r','30','-i','-','-i',str(wav),'-vf','scale=1080:1920','-c:v','libx264','-preset','veryfast','-crf','22','-pix_fmt','yuv420p','-c:a','aac','-ar','48000','-ac','2','-shortest',str(out)],stdin=sp.PIPE)
+                  words=script.split(); chunks=[' '.join(words[k:k+4]) for k in range(0,len(words),4)]
+                  for frame in range(n):
+                      t=frame/30; phase=t/max(duration,.01)
+                      im=Image.new('RGB',(720,1280),'#101125');d=ImageDraw.Draw(im)
+                      for y in range(0,1280,8):
+                          u=y/1280;d.rectangle((0,y,720,y+8),fill=(int(16+42*u),int(13+7*u),int(35+45*u)))
+                      horizon=660
+                      for k in range(15):
+                          x=k*62-85+int(18*math.sin(t*.8+k))
+                          h=75+(k*67)%220
+                          d.rectangle((x,horizon-h,x+45,horizon),fill='#211c40',outline='#4a316a')
+                          for wy in range(horizon-h+12,horizon-8,23):d.rectangle((x+9,wy,x+16,wy+6),fill='#aa4e94')
+                      for k in range(9):
+                          y=horizon+int((k/8)**2*450);d.line((0,y,720,y),fill='#54326d',width=2)
+                      for k in range(-6,7):d.line((360+k*20,horizon,360+k*180,1180),fill='#54326d',width=2)
+                      d.rounded_rectangle((35,42,685,115),radius=18,fill='#211a3b',outline='#ff65b5',width=2)
+                      d.text((55,78),'VICE RADAR NEWS',font=font(28),anchor='lm',fill='#ff75c1')
+                      d.text((665,78),'EP '+ep,font=font(25),anchor='rm',fill='#e6d8fa')
+                      cx,cy=360,410
+                      if mode=='PC':
+                          d.rounded_rectangle((120,250,600,530),radius=25,fill='#181c36',outline='#2ef1de',width=5)
+                          for j in range(7):d.line((145,290+j*30,575,290+j*30),fill='#34516c',width=2)
+                          d.text((360,390),'PC',font=font(110),anchor='mm',fill='#2ef1de')
+                          d.line((360,530,360,575),fill='#2ef1de',width=8);d.line((270,575,450,575),fill='#2ef1de',width=8)
+                      elif mode=='SOURCE':
+                          d.rounded_rectangle((75,235,645,570),radius=24,fill='#efeafa')
+                          source='GamesRadar' if ep=='002' else 'Meristation'
+                          d.text((105,275),source,font=font(38),fill='#26213c')
+                          d.text((105,337),'24 NOV 2026' if ep=='002' else 'INFORME • OCT 2026',font=font(22),fill='#5a4775')
+                          d.multiline_text((105,390),wrap('Pruebas experimentales de arranque' if ep=='002' else 'Posible lanzamiento en PC en 2027',font(35),d,490),font=font(35),fill='#231b38',spacing=8)
+                          d.text((105,530),'RESUMEN EDITORIAL',font=font(20),fill='#a12871')
+                      elif mode=='TIMELINE':
+                          d.line((90,410,630,410),fill='#c0a4e6',width=7)
+                          for x,lab in [(140,'2026'),(565,'2027')]:
+                              d.ellipse((x-16,394,x+16,426),fill='#35ebdc')
+                              d.text((x,470),lab,font=font(38),anchor='mm',fill='white')
+                          d.text((360,340),'CONSOLA → PC ?',font=font(36),anchor='mm',fill='#ff75c1')
+                      else:
+                          for r in (75,130,185):d.ellipse((cx-r,cy-r,cx+r,cy+r),outline='#8c4e9b',width=3)
+                          ang=t*2.5;d.line((cx,cy,cx+185*math.cos(ang),cy+185*math.sin(ang)),fill='#35ebdc',width=5)
+                          mark='!' if mode=='WARNING' else ('≠' if mode=='COMPARE' else '?')
+                          d.text((cx,cy),mark,font=font(120),anchor='mm',fill='#ff75c1')
+                      f=font(54);d.multiline_text((360,735),wrap(title,f,d,650),font=f,anchor='mm',align='center',fill='white',spacing=5)
+                      c=chunks[min(len(chunks)-1,int(phase*len(chunks)))]
+                      d.rounded_rectangle((42,925,678,1095),radius=22,fill='#121424',outline='#6a437f',width=2)
+                      f=font(37);d.multiline_text((360,1010),wrap(c,f,d,590),font=f,anchor='mm',align='center',fill='#fff5fc',spacing=6)
+                      d.text((360,1155),'ANIMACIÓN EDITORIAL • NO GAMEPLAY',font=font(18),anchor='mm',fill='#c3a8df')
+                      d.rectangle((45,1210,675,1220),fill='#38274f');d.rectangle((45,1210,45+int(630*(i+phase)/len(scenes)),1220),fill='#ff65b5')
+                      proc.stdin.write(im.tobytes())
+                  proc.stdin.close()
+                  if proc.wait():raise RuntimeError('ffmpeg scene failed')
+                  clips.append(out)
+              listing=folder/'concat.txt';listing.write_text(''.join("file '"+c.name+"'\n" for c in clips))
+              combined=folder/'combined.mp4';run('-f','concat','-safe','0','-i',str(listing),'-c','copy',str(combined))
+              dur=float(sp.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','default=nw=1:nk=1',str(combined)]))
+              sr=48000; t=np.arange(int(sr*dur))/sr
+              music=np.zeros_like(t)
+              for j,freq in enumerate([55,82.41,110,164.81]):music+=0.018*np.sin(2*np.pi*freq*t+0.08*np.sin(t*2+j))*(.65+.35*np.sin(2*np.pi*1.8*t+j))
+              music*=np.minimum(1,t/.5)*np.minimum(1,np.maximum(0,(dur-t)/.7))
+              sf.write(folder/'music.wav',music,sr)
+              final=Path('output')/f'VICE_RADAR_V2_{ep}.mp4'
+              run('-i',str(combined),'-i',str(folder/'music.wav'),'-filter_complex','[0:a]highpass=f=80,acompressor=threshold=0.125:ratio=2[v];[1:a]volume=0.35[m];[v][m]amix=inputs=2:duration=first:normalize=0,loudnorm=I=-14:TP=-1.5:LRA=7[a]','-map','0:v','-map','[a]','-c:v','copy','-c:a','aac','-ar','48000','-ac','2','-b:a','256k','-movflags','+faststart',str(final))
+              with open(Path('output')/f'audio-{ep}.txt','w') as f:sp.run(['ffmpeg','-hide_banner','-i',str(final),'-af','ebur128=peak=true','-f','null','-'],stderr=f,check=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vice-radar-dynamic-v2
+          path: |
+            output/*.mp4
+            output/audio-*.txt
+          retention-days: 3
