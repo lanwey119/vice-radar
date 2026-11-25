@@ -18,28 +18,12 @@ for cat,q in queries.items():
    items[link]={'date':date,'cat':cat,'art':{'PC':'PC','Comunidad':'DEV','Online':'ON'}.get(cat,'VI'),'title':title,'desc':'Referencia externa de '+source+'. Pendiente de verificación editorial; consulta el artículo original.','url':link,'status':'Pendiente de verificar','source':source}
  except Exception as e: errors.append(str(e))
 if len(errors)==len(queries): raise SystemExit('Todas las fuentes fallaron: '+str(errors))
-# Imagen de cada noticia
+# Las ilustraciones temáticas se generan en index.html; las fotos específicas
+# solo se muestran cuando imageAuthorized es true y existe autorización.
 for noticia in items.values():
-    if noticia.get('image'):
-        continue
-
-    categoria = noticia.get('cat', 'Noticias')
-    imagenes = {
-        'PC': 'assets/pc.jpg',
-        'Comunidad': 'assets/comunidad.jpg',
-        'Online': 'assets/online.jpg',
-        'Noticias': 'assets/gta6.jpg',
-        'Música': 'assets/musica.jpg',
-        'Mundo': 'assets/leonida.jpg',
-        'Tráilers': 'assets/trailer.jpg'
-    }
-
-    noticia['image'] = imagenes.get(
-        categoria, 'assets/gta6.jpg'
-    )
-    noticia['imageAlt'] = (
-        'Imagen ilustrativa de GTA VI - ' + categoria
-    )
+    if noticia.get('image', '').startswith('assets/') and not noticia.get('imageAuthorized'):
+        noticia.pop('image', None)
+        noticia.pop('imageAlt', None)
 
 p.write_text(json.dumps(sorted(items.values(),key=lambda x:x['date'],reverse=True)[:200],ensure_ascii=False,indent=2)+'\n')
 print('Referencias:',len(items),'Errores:',errors)
