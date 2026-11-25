@@ -39,5 +39,7 @@ for noticia in items.values():
     )
     noticia['imageAlt'] = (
         'Imagen ilustrativa de GTA VI - ' + categoria
-    )p.write_text(json.dumps(sorted(items.values(),key=lambda x:x['date'],reverse=True)[:200],ensure_ascii=False,indent=2)+'\n')
+    )
+
+p.write_text(json.dumps(sorted(items.values(),key=lambda x:x['date'],reverse=True)[:200],ensure_ascii=False,indent=2)+'\n')
 print('Referencias:',len(items),'Errores:',errors)
