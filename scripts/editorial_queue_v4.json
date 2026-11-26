@@ -24,5 +24,57 @@
         "Sigue Vice Radar para distinguir noticias confirmadas de rumores."
       ]
     ]
+  },
+  {
+    "id": "002-v4",
+    "label": "PC · EXPLICACIÓN",
+    "scenes": [
+      [
+        "ARRANCAR NO ES JUGAR",
+        "Que un videojuego arranque en un ordenador no significa que sea jugable."
+      ],
+      [
+        "ESTABILIDAD",
+        "También importa que funcione sin errores durante sesiones largas."
+      ],
+      [
+        "RENDIMIENTO",
+        "Los fotogramas por segundo pueden cambiar según el equipo y la escena."
+      ],
+      [
+        "GTA VI EN PC",
+        "No confundas las pruebas experimentales con una edición oficial."
+      ],
+      [
+        "VICE RADAR",
+        "Consulta siempre las noticias y los requisitos oficiales de Rockstar."
+      ]
+    ]
+  },
+  {
+    "id": "003-v4",
+    "label": "PC · RUMORES",
+    "scenes": [
+      [
+        "¿FECHA PARA PC?",
+        "Una fecha que circula por internet no equivale a un anuncio oficial."
+      ],
+      [
+        "BUSCA LA FUENTE",
+        "Comprueba si la información procede directamente de Rockstar."
+      ],
+      [
+        "STEAM Y EPIC",
+        "Una publicación de terceros tampoco confirma en qué tiendas saldrá un juego."
+      ],
+      [
+        "NO TE PRECIPITES",
+        "Evita reservar en páginas desconocidas basándote en rumores."
+      ],
+      [
+        "VICE RADAR",
+        "Aquí diferenciamos las noticias confirmadas de las especulaciones."
+      ]
+    ]
   }
 ]
