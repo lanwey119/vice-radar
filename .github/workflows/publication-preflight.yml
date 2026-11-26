@@ -1,0 +1,35 @@
+name: VICE RADAR publication preflight
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/publication-preflight.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify both Buffer destinations without posting
+        env:
+          BUFFER_API_KEY: ${{ secrets.BUFFER_API_KEY }}
+          DRY_RUN: "true"
+        run: |
+          TARGET=youtube python scripts/buffer_publish.py
+          TARGET=tiktok python scripts/buffer_publish.py
+      - name: Check publication schema without mutation
+        env:
+          BUFFER_API_KEY: ${{ secrets.BUFFER_API_KEY }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request
+          q='query { __type(name:"CreatePostInput") { inputFields { name type { kind name ofType { kind name } } } } }'
+          req=urllib.request.Request("https://api.buffer.com",data=json.dumps({"query":q}).encode(),headers={"Authorization":"Bearer "+os.environ["BUFFER_API_KEY"],"Content-Type":"application/json"})
+          with urllib.request.urlopen(req,timeout=45) as r: data=json.load(r)
+          if data.get("errors"): raise SystemExit("Schema introspection unavailable")
+          fields=data["data"]["__type"]["inputFields"]
+          names={f["name"] for f in fields}
+          assert {"channelId","text","assets","metadata","mode","schedulingType"}.issubset(names)
+          print(json.dumps(fields))
+          PY
