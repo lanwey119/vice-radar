@@ -1,0 +1,21 @@
+[
+  {
+    "id": "v5-pilot",
+    "label": "GUÍA PC",
+    "source": "https://www.rockstargames.com/",
+    "scenes": [
+      {
+        "spoken": "Antes de descargar un supuesto GTA seis para PC, comprueba su origen.",
+        "visual": "A gaming desktop computer in a neon Miami inspired room, suspicious generic download icon on screen, editorial illustration"
+      },
+      {
+        "spoken": "Consulta los anuncios oficiales y evita archivos de procedencia desconocida.",
+        "visual": "Close up of a laptop with abstract verification shield and magnifying glass, cinematic cyber safety editorial illustration"
+      },
+      {
+        "spoken": "Una demostración experimental no equivale a una versión oficial.",
+        "visual": "Split composition of experimental computer circuit prototype and sealed retail game box without branding, cinematic editorial illustration"
+      }
+    ]
+  }
+]
