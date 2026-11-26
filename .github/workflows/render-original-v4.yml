@@ -1,0 +1,33 @@
+name: VICE RADAR V4 original graphics
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/render-original-v4.yml'
+      - 'scripts/render_original_v4.py'
+      - 'scripts/editorial_queue_v4.json'
+permissions:
+  contents: read
+concurrency:
+  group: vice-radar-v4
+  cancel-in-progress: false
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg espeak-ng fonts-dejavu-core
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install 'kokoro==0.9.4' soundfile numpy pillow
+      - run: python scripts/render_original_v4.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vice-radar-v4-quality-review
+          path: output/
+          retention-days: 3
