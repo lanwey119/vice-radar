@@ -1,0 +1,33 @@
+name: VICE RADAR V5 generative pilot
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/render-original-v5.yml'
+      - 'scripts/render_original_v5.py'
+      - 'scripts/editorial_queue_v5.json'
+permissions:
+  contents: read
+concurrency:
+  group: vice-radar-v5
+  cancel-in-progress: false
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg espeak-ng fonts-dejavu-core
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          pip install 'kokoro==0.9.4' soundfile numpy pillow 'diffusers==0.32.2' 'transformers==4.48.3' accelerate safetensors
+      - run: python scripts/render_original_v5.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vice-radar-v5-quality-review
+          path: output-v5/
+          retention-days: 3
