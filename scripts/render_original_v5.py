@@ -30,9 +30,15 @@ for ep in queue:
     shots=[]; manifest=[]
     for i,scene in enumerate(ep["scenes"]):
         spoken=scene["spoken"]; prompt=scene["visual"]
-        seed=20261126+i
-        result=pipe(prompt+", cinematic editorial illustration, neon magenta and cyan, vertical composition, no text, no logos",negative_prompt="text, watermark, logo, blurry, screenshot, gameplay interface",width=384,height=640,num_inference_steps=12,guidance_scale=7,generator=torch.Generator(device=device).manual_seed(seed))
-        if result.nsfw_content_detected and any(result.nsfw_content_detected): raise RuntimeError("Image safety check failed")
+        for attempt in range(3):
+            seed=20261126+i+attempt*1009
+            safe_prompt=prompt if attempt==0 else "Family friendly technology editorial still life, objects only, no people, "+prompt
+            result=pipe(safe_prompt+", cinematic editorial illustration, neon magenta and cyan, vertical composition, no text, no logos",negative_prompt="text, watermark, logo, blurry, screenshot, gameplay interface, nudity, sexual content, violence, people",width=384,height=640,num_inference_steps=12,guidance_scale=7,generator=torch.Generator(device=device).manual_seed(seed))
+            if result.nsfw_content_detected is not None and not any(result.nsfw_content_detected):
+                break
+            print(f"Scene {i}: rejected image discarded, attempt {attempt+1}",flush=True)
+        else:
+            raise RuntimeError("No approved image after three attempts; stop for review")
         raw=folder/f"scene-{i:02}.png"; result.images[0].save(raw)
         im=ImageOps.fit(result.images[0].convert("RGB"),(1080,1920),method=Image.Resampling.LANCZOS)
         overlay=Image.new("RGBA",im.size); d=ImageDraw.Draw(overlay)
