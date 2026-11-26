@@ -1,0 +1,28 @@
+[
+  {
+    "id": "pc-pilot-v4",
+    "label": "GUÍA PC · ANÁLISIS",
+    "scenes": [
+      [
+        "¿GTA VI EN TU PC?",
+        "Antes de comprar un ordenador para GTA seis, hay algo importante."
+      ],
+      [
+        "REQUISITOS OFICIALES",
+        "Comprueba los requisitos publicados por Rockstar antes de gastar dinero."
+      ],
+      [
+        "NO CONFUNDAS PRUEBAS",
+        "Una prueba experimental no demuestra el rendimiento de una versión oficial."
+      ],
+      [
+        "EVITA DESCARGAS FALSAS",
+        "No descargues archivos de páginas que prometen acceso no autorizado."
+      ],
+      [
+        "VICE RADAR",
+        "Sigue Vice Radar para distinguir noticias confirmadas de rumores."
+      ]
+    ]
+  }
+]
