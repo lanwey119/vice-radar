@@ -1,0 +1,28 @@
+name: VICE RADAR media hosting test
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/media-host-test.yml'
+permissions:
+  contents: write
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Test temporary public release asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          tag="media-test-${GITHUB_RUN_ID}"
+          trap 'gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes || true' EXIT
+          ffmpeg -v error -f lavfi -i color=c=black:s=1080x1920:r=30 -t 1 -c:v libx264 -pix_fmt yuv420p -movflags +faststart transport-test.mp4
+          gh release create "$tag" transport-test.mp4 --repo "$GITHUB_REPOSITORY" --prerelease --title "Temporary media transport test" --notes "Synthetic black frame, not editorial content."
+          url="https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/transport-test.mp4"
+          curl --fail --location --retry 5 --retry-all-errors "$url" -o received.mp4
+          cmp transport-test.mp4 received.mp4
+          ffprobe -v error received.mp4
