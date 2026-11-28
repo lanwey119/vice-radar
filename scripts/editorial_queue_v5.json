@@ -1,20 +1,40 @@
 [
   {
-    "id": "v5-pilot",
-    "label": "GUÍA PC",
-    "source": "https://www.rockstargames.com/",
+    "id": "20261128-console-supply",
+    "label": "ACTUALIDAD · 28 NOV",
+    "source": "https://www.washingtonpost.com/world/2026/11/27/gta-vi-release-has-swept-playstation-5-off-shelves-worldwide/",
     "scenes": [
       {
-        "spoken": "Antes de descargar un supuesto GTA seis para PC, comprueba su origen.",
-        "visual": "A gaming desktop computer in a neon Miami inspired room, suspicious generic download icon on screen, editorial illustration"
+        "spoken": "¿GTA seis está agotando las consolas?",
+        "visual": "Empty electronics retail shelf with neon lighting"
       },
       {
-        "spoken": "Consulta los anuncios oficiales y evita archivos de procedencia desconocida.",
-        "visual": "Close up of a laptop with abstract verification shield and magnifying glass, cinematic cyber safety editorial illustration"
+        "spoken": "Según The Washington Post, la demanda ha aumentado.",
+        "visual": "Generic game controllers and a rising abstract chart"
       },
       {
-        "spoken": "Una demostración experimental no equivale a una versión oficial.",
-        "visual": "Split composition of experimental computer circuit prototype and sealed retail game box without branding, cinematic editorial illustration"
+        "spoken": "Algunas tiendas ya tienen problemas de existencias.",
+        "visual": "Empty display shelves in a modern electronics store"
+      },
+      {
+        "spoken": "La escasez de chips también limita la oferta.",
+        "visual": "Macro view of semiconductor chips on circuit board"
+      },
+      {
+        "spoken": "No significa que todas las tiendas estén agotadas.",
+        "visual": "Several generic console boxes in a warehouse"
+      },
+      {
+        "spoken": "Los precios de reventa pueden superar los oficiales.",
+        "visual": "Generic price tags and game controller on counter"
+      },
+      {
+        "spoken": "Compara precios antes de comprar una consola.",
+        "visual": "Laptop showing abstract comparison chart without text"
+      },
+      {
+        "spoken": "¿Esperarías a encontrar una oferta mejor?",
+        "visual": "Neon gaming setup with empty chair and controller"
       }
     ]
   }
